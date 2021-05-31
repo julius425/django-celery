@@ -6,7 +6,7 @@ from easy_thumbnails.conf import Settings as thumbnail_settings
 
 root = environ.Path(__file__) - 3        # three folder back (/a/b/c/ - 3 = /)
 env = environ.Env(DEBUG=(bool, False),)  # set default values and casting
-environ.Env.read_env()                   # reading .env file
+environ.Env.read_env('.env')                   # reading .env file
 
 SITE_ROOT = root()
 
@@ -25,6 +25,7 @@ TIME_FORMAT = 'h:i a'
 TEACHER_GROUP_ID = 2  # PK of django.contrib.auth.models.Group with the teacher django-admin permissions
 PLANNING_DELTA = timedelta(hours=18)  # booking lag
 CLASS_IS_FINISHED_AFTER = timedelta(minutes=60)  # mark classes as finished after this time
+NOTIFY_MONEY_LEAK_DELTA = timedelta(days=7)
 
 FORMAT_MODULE_PATH = [
     'elk.formats'
@@ -320,6 +321,10 @@ CELERYBEAT_SCHEDULE = {
     'bill_timeline_entries': {
         'task': 'accounting.tasks.bill_timeline_entries',
         'schedule': timedelta(minutes=1),
+    },
+    'notify_money_leak': {
+        'task': 'timeline.tasks.notify_money_leak',
+        'schedule': timedelta(hours=24),
     },
 }
 
