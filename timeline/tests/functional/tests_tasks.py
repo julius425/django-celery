@@ -1,11 +1,18 @@
+from datetime import timedelta
 from unittest.mock import patch
 
+from django.utils import timezone
 from django.core import mail
 from freezegun import freeze_time
 from mixer.backend.django import mixer
 
-from elk.utils.testing import ClassIntegrationTestCase, create_customer
-from timeline.tasks import notify_15min_to_class
+from market import models
+from products import models as products
+from lessons import models as lessons
+from elk.utils.testing import ClassIntegrationTestCase, create_customer, \
+    create_teacher
+from market.models import Class
+from timeline.tasks import notify_15min_to_class, notify_money_leak
 
 
 class TestStartingSoonEmail(ClassIntegrationTestCase):
@@ -54,3 +61,48 @@ class TestStartingSoonEmail(ClassIntegrationTestCase):
         self.assertIn(self.host.user.email, out_emails)
         self.assertIn(first_customer.user.email, out_emails)
         self.assertIn(other_customer.user.email, out_emails)
+
+    def _prepare_notify_test_data(self):
+
+        self.customer = create_customer()
+        self.product = products.Product1.objects.get(pk=1)
+        self.product.duration = timedelta(days=5)
+
+        self.subscription = models.Subscription(
+            customer=self.customer,
+            product=self.product,
+            buy_price=150,
+        )
+        self.subscription.save()
+
+        teacher = create_teacher()
+        lesson = mixer.blend(
+            lessons.MasterClass,
+            host=teacher,
+            photo=mixer.RANDOM
+        )
+        entry = mixer.blend(
+            'timeline.Entry',
+            lesson=lesson,
+            teacher=teacher,
+            start=self.tzdatetime(2032, 12, 25, 12, 00)
+        )
+
+        self.klass = Class.objects.first()
+        self.klass.timeline = entry
+
+        self.klass.is_scheduled = True
+        self.klass.timeline.is_finished = False
+        self.klass.timeline.start = timezone.now() - timedelta(days=8)
+
+        self.klass.save()
+        self.klass.timeline.save()
+
+    @patch('market.signals.Owl')
+    def test_notify_money_leak_sends_email_to_corresponding_customers(self, Owl):
+        self._prepare_notify_test_data()
+        notify_money_leak()
+        self.assertEqual(len(mail.outbox), 1)
+
+
+
