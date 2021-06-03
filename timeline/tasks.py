@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from elk.celery import app as celery
+from mailer.owl import Owl
 from market.models import Class
 from timeline.signals import class_starting_student, class_starting_teacher
 
@@ -20,3 +21,19 @@ def notify_15min_to_class():
         i.pre_start_notifications_sent_to_student = True
         i.save()
         class_starting_student.send(sender=notify_15min_to_class, instance=i)
+
+
+@celery.task
+def notify_money_leak():
+    for c in Class.objects.to_remind():
+        owl = Owl(
+            template='mail/class/teacher/scheduled.html',
+            ctx={
+                'c': c,
+            },
+            to=[c.customer.customer_email],
+            timezone=c.customer.user.crm.timezone,
+        )
+        owl.attach('elk-class.ics',
+                   content=c.timeline.as_ical(for_whom='student'))
+        owl.send()

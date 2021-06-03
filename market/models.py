@@ -325,6 +325,20 @@ class ClassesManager(ProductContainerManager):
     def scheduled(self):
         return self.get_queryset().filter(is_fully_used=False, is_scheduled=True)
 
+    def to_remind(self, delta=None):
+        """
+        Filter entries that are not visited within 7-days delta
+        """
+        if delta is None:
+            delta = settings.NOTIFY_MONEY_LEAK_DELTA
+
+        # not finished in 7 days
+        return self.get_queryset()\
+            .filter(is_scheduled=True)\
+            .filter(timeline__is_finished=False)\
+            .filter(timeline__start__lte=timezone.now() - delta)
+
+
 
 class Class(ProductContainer):
     """

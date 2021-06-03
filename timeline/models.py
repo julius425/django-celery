@@ -35,6 +35,17 @@ class EntryManager(models.Manager):
             .filter(is_finished=False) \
             .filter(start__gte=timezone.now() + delta) \
 
+    # def not_finished(self, delta=None):
+    #     """
+    #     Filter entries that are not finished with 7-days delta
+    #     """
+    #     if delta is None:
+    #         delta = settings.NOTIFY_MONEY_LEAK_DELTA
+    #
+    #     return self.get_queryset()\
+    #         .filter(is_finished=False)\
+    #         .filter(start__gte=timezone.now() - delta)
+
 
     def by_lesson(self, lesson):
         """

@@ -9,6 +9,7 @@ from mixer.backend.django import mixer
 from elk.utils.testing import TestCase, create_customer, create_teacher
 from lessons import models as lessons
 from market import models
+from market.models import Class
 from products import models as products
 
 
@@ -198,3 +199,32 @@ class TestClassManager(TestCase):
         self.subscription.save()
 
         self.assertEqual(models.Subscription.objects.due().count(), 0)
+
+    def _prepare_manager_test_data(self):
+        teacher = create_teacher()
+        lesson = mixer.blend(
+            lessons.MasterClass,
+            host=teacher,
+            photo=mixer.RANDOM
+        )
+        entry = mixer.blend(
+            'timeline.Entry',
+            lesson=lesson,
+            teacher=teacher,
+            start=self.tzdatetime(2032, 12, 25, 12, 00)
+        )
+
+        self.klass = Class.objects.first()
+        self.klass.timeline = entry
+
+        self.klass.is_scheduled = True
+        self.klass.timeline.is_finished = False
+        self.klass.timeline.start = timezone.now() - timedelta(days=8)
+
+        self.klass.save()
+        self.klass.timeline.save()
+
+    def test_class_manager_returns_not_visited_in_seven_days(self):
+        self._prepare_manager_test_data()
+        qs = Class.objects.to_remind()
+        self.assertEqual(list(qs), [self.klass])
